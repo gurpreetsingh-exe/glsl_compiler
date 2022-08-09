@@ -1,0 +1,8 @@
+*
+!*.*
+!/**/
+.*
+!.gitignore
+*.grammer
+__pycache__/
+*.glsl
