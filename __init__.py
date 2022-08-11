@@ -5,8 +5,10 @@ bl_info = {
     "version": (0, 0, 1),
 }
 
-
-from beeprint import pp
+try:
+    from beeprint import pp
+except ImportError:
+    print("beeprint is not installed")
 
 import bpy
 from bpy.types import (
@@ -14,6 +16,8 @@ from bpy.types import (
     Operator,
     PropertyGroup,
     WindowManager)
+
+from .nodegen import NodeGen
 
 from .Lexer import Lexer
 from .Parser import Parser
@@ -34,8 +38,15 @@ class COM_PT_Panel(Panel):
     def draw(self, context):
         gc = context.window_manager.glsl_compiler
         layout = self.layout
-        layout.prop(gc, "filepath")
-        layout.operator("glsl_compiler.compile")
+        layout.use_property_decorate = False
+        row = layout.row(align=True)
+        row = row.column()
+        row.prop(gc, "filepath")
+        row = row.column()
+        row.operator("glsl_compiler.compile")
+
+        row = layout.row(align=True)
+        row.prop(gc, "debug_ast_output")
 
 class COM_OT_compile(Operator):
     bl_idname = "glsl_compiler.compile"
@@ -46,6 +57,16 @@ class COM_OT_compile(Operator):
         gc = context.window_manager.glsl_compiler
         return gc.filepath
 
+    def dump_ast(self, ast):
+        print("======= AST dump start =======")
+        for a in ast:
+            if 'pp' in globals():
+                pp(a, indent=4, max_depth=10)
+            else:
+                print(a)
+        print("======== AST dump end ========")
+
+
     def execute(self, context):
         gc = context.window_manager.glsl_compiler
         content = ""
@@ -53,14 +74,17 @@ class COM_OT_compile(Operator):
             content = f.read()
         tokens = list(Lexer(content).lexfile())
         ast = list(Parser(tokens).parse())
-        for a in ast:
-            pp(a, indent=4, max_depth=10)
+        if gc.debug_ast_output:
+            self.dump_ast(ast)
+        NodeGen(ast, context).start()
         return {'FINISHED'}
 
 class GLSLCompiler(PropertyGroup):
     filepath: bpy.props.StringProperty(name="Source file", subtype="FILE_PATH",
         # temp
         default="/home/gurpreetsingh/Development/glsl_compiler/shader.glsl")
+
+    debug_ast_output: bpy.props.BoolProperty(name="AST output", default=False)
 
 classes = [
     COM_PT_Panel,

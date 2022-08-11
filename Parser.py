@@ -53,10 +53,10 @@ class Parser:
             return
 
         if self.curr_tok.typ == TokenKind.TYPE:
-            typ = self.curr_tok.typ
+            typ = self.curr_tok.value
         else:
             prop = self.curr_tok.typ
-            typ = self.expect(TokenKind.TYPE).typ
+            typ = self.expect(TokenKind.TYPE).value
 
         name = self.expect(TokenKind.IDENT).value
         self.advance()
@@ -84,6 +84,7 @@ class Parser:
         self.expect_curr(TokenKind.LCURLY)
         while self.keepParsing and self.curr_tok.typ != TokenKind.RCURLY:
             yield from self.statement()
+        self.expect_curr(TokenKind.RCURLY)
 
     def declaration(self):
         print(self.curr_tok)
@@ -118,7 +119,8 @@ class Parser:
                 yield self.declaration()
         elif self.curr_tok.typ == TokenKind.LPAREN:
             # it's 4
-            pass
+            # this function expects an identifier so L
+            return self.fn_call()
         else:
             # hmmmm this should be unreachable
             pass
@@ -206,7 +208,7 @@ class Parser:
         self.expect_curr(TokenKind.SEMI)
 
     def statement(self):
-        if self.curr_tok.typ == TokenKind.IDENT:
+        if self.curr_tok.typ in {TokenKind.IDENT, TokenKind.LITERAL}:
             yield from self.expr_stmt()
         else:
             # Should hit this for EOF in some cases
