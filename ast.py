@@ -27,6 +27,11 @@ class Unary:
         self.op = op
         self.right = right
 
+class Decl:
+    def __init__(self, typ, expr):
+        self.typ = typ
+        self.expr = expr
+
 class Assign:
     def __init__(self, name, init):
         self.name = name

@@ -22,9 +22,10 @@ class NodeTree:
             if arg.props in {TokenKind.OUT, TokenKind.INOUT}:
                 self._outputs.new(type="NodeSocketVector", name=arg.name)
 
-    def value(self, val):
+    def add_var(self, val):
         node = self._node_tree.nodes.new(type="ShaderNodeValue")
         node.outputs[0].default_value = val
+        return node
 
 class NodeGen:
     def __init__(self, ast: List[object], bl_context: bpy.types.Context):
@@ -63,8 +64,29 @@ class NodeGen:
 
         if node.op.typ == TokenKind.PLUS:
             return float(left) + float(right)
+        elif node.op.typ == TokenKind.MINUS:
+            return float(left) - float(right)
+        elif node.op.typ == TokenKind.STAR:
+            return float(left) * float(right)
+        elif node.op.typ == TokenKind.SLASH:
+            return float(left) / float(right)
         else:
             self.error(f"{node.op} Not implemented")
+
+    def expression(self, node, ntree: NodeTree):
+        if isinstance(node, Binary):
+            val = self.binary(node, ntree)
+            return ntree.add_var(val)
+        elif isinstance(node, Decl):
+            assing = node.expr
+            bl_node = self.expression(assing.init, ntree)
+            bl_node.name = assing.name
+            bl_node.label = assing.name
+            return bl_node
+        elif isinstance(node, Literal):
+            return ntree.add_var(float(node.value))
+        else:
+            self.error(f"{node}: Not implemeneted")
 
     def emit(self, nodes: List[object]):
         curr_ntree = self.scope[-1]
@@ -79,9 +101,6 @@ class NodeGen:
                 for arg in sign.args:
                     ntree.add_input(arg)
                 self.emit(node.body)
-            elif isinstance(node, Binary):
-                val = self.binary(node, curr_ntree)
-                curr_ntree.value(val)
             else:
-                self.error(f"{node}: Not implemeneted")
+                self.expression(node, curr_ntree)
         self.scope.pop()

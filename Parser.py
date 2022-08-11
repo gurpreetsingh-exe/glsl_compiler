@@ -87,8 +87,7 @@ class Parser:
         self.expect_curr(TokenKind.RCURLY)
 
     def declaration(self):
-        print(self.curr_tok)
-        self.error("Stop in declaration")
+        return self.expression()
 
     def item(self):
         """NOTE:
@@ -116,7 +115,7 @@ class Parser:
                 body = list(self.block())
                 yield FnDef(fn_sig, body)
             else:
-                yield self.declaration()
+                yield Decl(typ, self.declaration())
         elif self.curr_tok.typ == TokenKind.LPAREN:
             # it's 4
             # this function expects an identifier so L
@@ -210,6 +209,8 @@ class Parser:
     def statement(self):
         if self.curr_tok.typ in {TokenKind.IDENT, TokenKind.LITERAL}:
             yield from self.expr_stmt()
+        elif self.curr_tok.typ == TokenKind.TYPE:
+            yield from self.item()
         else:
             # Should hit this for EOF in some cases
             self.error("Not implemented")
@@ -217,7 +218,4 @@ class Parser:
 
     def parse(self):
         while self.keepParsing:
-            if self.curr_tok.typ == TokenKind.TYPE:
-                yield from self.item()
-            else:
-                yield from self.statement()
+            yield from self.statement()
