@@ -27,10 +27,30 @@ class NodeTree:
         node.outputs[0].default_value = val
         return node
 
+    def link_or_set_at(self, socket_index, value, node):
+        if issubclass(type(value), bpy.types.Node):
+            self._node_tree.links.new(value.outputs[0], node.inputs[socket_index])
+        else:
+            node.inputs[socket_index].default_value = float(value)
+
+    def node_op_from_token(self, typ):
+        match typ:
+            case TokenKind.PLUS:  return "ADD"
+            case TokenKind.MINUS: return "SUBTRACT"
+            case TokenKind.STAR:  return "MULTIPLY"
+            case TokenKind.SLASH: return "DIVIDE"
+
+    def set_binary_operation(self, node, op):
+        if node.type == "MATH":
+            node.operation = self.node_op_from_token(op.typ)
+        elif node.type == "VECT_MATH":
+            assert False, "Not implemented"
+
     def bin_op(self, left, right, op):
         node = self._node_tree.nodes.new(type="ShaderNodeMath")
-        self._node_tree.links.new(left.outputs[0], node.inputs[0])
-        self._node_tree.links.new(right.outputs[0], node.inputs[1])
+        self.set_binary_operation(node, op)
+        self.link_or_set_at(0, left, node)
+        self.link_or_set_at(1, right, node)
         return node
 
     def find_var(self, name):
@@ -61,29 +81,34 @@ class NodeGen:
         self.clear()
         self.emit(self.ast)
 
+    def evaluate(self, node, ntree: NodeTree):
+        ty = type(node)
+        if ty == Binary:
+            return self.binary(node, ntree)
+        elif ty == Literal:
+            return node.value
+        elif ty == Ident:
+            return ntree.find_var(node.name)
+        else:
+            assert False, f"{node}: in evaluate()"
+
     def binary(self, node: Binary, ntree: NodeTree):
-        left = node.left
-        right = node.right
+        left = self.evaluate(node.left, ntree)
+        right = self.evaluate(node.right, ntree)
 
-        bl_node_left = None
-        bl_node_right = None
-        if type(left) == Ident:
-            bl_node_left = ntree.find_var(left.name)
-        if type(right) == Ident:
-            bl_node_right = ntree.find_var(right.name)
-
-        return ntree.bin_op(bl_node_left, bl_node_right, node.op)
+        return ntree.bin_op(left, right, node.op)
 
     def expression(self, node, ntree: NodeTree):
-        if isinstance(node, Binary):
+        ty = type(node)
+        if ty == Binary:
             return self.binary(node, ntree)
-        elif isinstance(node, Decl):
+        elif ty == Decl:
             assign = node.expr
             bl_node = self.expression(assign.init, ntree)
             bl_node.name = assign.name
             bl_node.label = assign.name
             return bl_node
-        elif isinstance(node, Literal):
+        elif ty == Literal:
             return ntree.add_var(float(node.value))
         else:
             self.error(f"{node}: Not implemeneted")
