@@ -21,6 +21,7 @@ from .nodegen import NodeGen
 
 from .Lexer import Lexer
 from .Parser import Parser
+from .constant_fold import constant_fold
 
 class COM_PT_Panel(Panel):
     bl_idname = "COM_PT_Panel"
@@ -74,9 +75,10 @@ class COM_OT_compile(Operator):
             content = f.read()
         tokens = list(Lexer(content).lexfile())
         ast = list(Parser(tokens).parse())
+        ir = constant_fold(ast)
         if gc.debug_ast_output:
             self.dump_ast(ast)
-        NodeGen(ast, context).start()
+        NodeGen(ir, context).start()
         return {'FINISHED'}
 
 class GLSLCompiler(PropertyGroup):

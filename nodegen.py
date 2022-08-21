@@ -27,6 +27,18 @@ class NodeTree:
         node.outputs[0].default_value = val
         return node
 
+    def bin_op(self, left, right, op):
+        node = self._node_tree.nodes.new(type="ShaderNodeMath")
+        self._node_tree.links.new(left.outputs[0], node.inputs[0])
+        self._node_tree.links.new(right.outputs[0], node.inputs[1])
+        return node
+
+    def find_var(self, name):
+        node = self._node_tree.nodes.get(name)
+        if not node:
+            assert False, f"Undeclared identifier `{name}`"
+        return node
+
 class NodeGen:
     def __init__(self, ast: List[object], bl_context: bpy.types.Context):
         self.ast = ast
@@ -52,36 +64,24 @@ class NodeGen:
     def binary(self, node: Binary, ntree: NodeTree):
         left = node.left
         right = node.right
-        if isinstance(node.left, Binary):
-            left = self.binary(node.left, ntree)
-        elif isinstance(node.left, Literal):
-            left = node.left.value
 
-        if isinstance(node.right, Binary):
-            right = self.binary(node.right, ntree)
-        elif isinstance(node.right, Literal):
-            right = node.right.value
+        bl_node_left = None
+        bl_node_right = None
+        if type(left) == Ident:
+            bl_node_left = ntree.find_var(left.name)
+        if type(right) == Ident:
+            bl_node_right = ntree.find_var(right.name)
 
-        if node.op.typ == TokenKind.PLUS:
-            return float(left) + float(right)
-        elif node.op.typ == TokenKind.MINUS:
-            return float(left) - float(right)
-        elif node.op.typ == TokenKind.STAR:
-            return float(left) * float(right)
-        elif node.op.typ == TokenKind.SLASH:
-            return float(left) / float(right)
-        else:
-            self.error(f"{node.op} Not implemented")
+        return ntree.bin_op(bl_node_left, bl_node_right, node.op)
 
     def expression(self, node, ntree: NodeTree):
         if isinstance(node, Binary):
-            val = self.binary(node, ntree)
-            return ntree.add_var(val)
+            return self.binary(node, ntree)
         elif isinstance(node, Decl):
-            assing = node.expr
-            bl_node = self.expression(assing.init, ntree)
-            bl_node.name = assing.name
-            bl_node.label = assing.name
+            assign = node.expr
+            bl_node = self.expression(assign.init, ntree)
+            bl_node.name = assign.name
+            bl_node.label = assign.name
             return bl_node
         elif isinstance(node, Literal):
             return ntree.add_var(float(node.value))
