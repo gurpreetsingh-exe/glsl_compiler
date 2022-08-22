@@ -48,6 +48,7 @@ class COM_PT_Panel(Panel):
 
         row = layout.row(align=True)
         row.prop(gc, "debug_ast_output")
+        row.prop(gc, "debug_token_output")
 
 class COM_OT_compile(Operator):
     bl_idname = "glsl_compiler.compile"
@@ -74,10 +75,13 @@ class COM_OT_compile(Operator):
         with open(gc.filepath, "r") as f:
             content = f.read()
         tokens = list(Lexer(content).lexfile())
+        if gc.debug_token_output:
+            for token in tokens:
+                print(token)
         ast = list(Parser(tokens).parse())
-        ir = constant_fold(ast)
         if gc.debug_ast_output:
             self.dump_ast(ast)
+        ir = constant_fold(ast)
         NodeGen(ir, context).start()
         return {'FINISHED'}
 
@@ -87,6 +91,7 @@ class GLSLCompiler(PropertyGroup):
         default="/home/gurpreetsingh/Development/glsl_compiler/shader.glsl")
 
     debug_ast_output: bpy.props.BoolProperty(name="AST output", default=False)
+    debug_token_output: bpy.props.BoolProperty(name="Token output", default=False)
 
 classes = [
     COM_PT_Panel,

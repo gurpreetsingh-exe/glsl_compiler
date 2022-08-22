@@ -18,7 +18,7 @@ class Parser:
 
     def error(self, msg):
         self.state = False
-        print(msg)
+        print(f"{self.curr_tok.loc}: {msg}")
 
     @property
     def keepParsing(self):
@@ -213,7 +213,7 @@ class Parser:
             yield from self.item()
         else:
             # Should hit this for EOF in some cases
-            self.error("Not implemented")
+            self.error(f"{self.curr_tok} Not implemented")
             return
 
     def parse(self):
