@@ -12,6 +12,15 @@ class NodeTree:
         self._inputs = self._node_tree.inputs
         self._outputs = self._node_tree.outputs
 
+        self._node_loc = [0, 0]
+        self._var_loc = [-200, 0]
+
+    def __del__(self):
+        l = self._node_tree.nodes[0].location
+        self._group_in.location = [l[0] - 400, l[1]]
+        l = self._node_tree.nodes[-1].location
+        self._group_out.location = [l[0] + 200, l[1]]
+
     def add_input(self, arg: FnArg):
         if arg.typ in {TypeKind.VEC2, TypeKind.VEC3, TypeKind.VEC4}:
             self._inputs.new(type="NodeSocketVector", name=arg.name)
@@ -19,7 +28,9 @@ class NodeTree:
                 self._outputs.new(type="NodeSocketVector", name=arg.name)
 
     def add_var(self, val):
-        node = self._node_tree.nodes.new(type="ShaderNodeValue")
+        node = self.add_node("ShaderNodeValue")
+        node.location = self._var_loc
+        self._var_loc[1] -= 100
         node.outputs[0].default_value = val
         return node
 
@@ -42,8 +53,14 @@ class NodeTree:
         elif node.type == "VECT_MATH":
             assert False, "Not implemented"
 
+    def add_node(self, ty):
+        node = self._node_tree.nodes.new(type=ty)
+        return node
+
     def bin_op(self, left, right, op):
-        node = self._node_tree.nodes.new(type="ShaderNodeMath")
+        node = self.add_node("ShaderNodeMath")
+        node.location = self._node_loc
+        self._node_loc[0] += 200
         self.set_binary_operation(node, op)
         self.link_or_set_at(0, left, node)
         self.link_or_set_at(1, right, node)
