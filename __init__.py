@@ -41,8 +41,15 @@ class COM_PT_Panel(Panel):
         layout = self.layout
         layout.use_property_decorate = False
         row = layout.row(align=True)
-        row = row.column()
-        row.prop(gc, "filepath")
+        row.prop(gc, "source_type", expand=True)
+        if gc.source_type == "EXTERNAL":
+            row = layout.row(align=True)
+            row = row.column()
+            row.prop(gc, "filepath", text="")
+        elif gc.source_type == "INTERNAL":
+            row = layout.row(align=True)
+            row = row.column()
+            row.prop(gc, "text_prop", text="")
         row = row.column()
         row.operator("glsl_compiler.compile")
 
@@ -57,7 +64,9 @@ class COM_OT_compile(Operator):
     @classmethod
     def poll(cls, context):
         gc = context.window_manager.glsl_compiler
-        return gc.filepath
+        return \
+            (gc.source_type == "INTERNAL" and gc.text_prop) or \
+            (gc.source_type == "EXTERNAL" and gc.filepath)
 
     def dump_ast(self, ast):
         print("======= AST dump start =======")
@@ -72,8 +81,12 @@ class COM_OT_compile(Operator):
     def execute(self, context):
         gc = context.window_manager.glsl_compiler
         content = ""
-        with open(gc.filepath, "r") as f:
-            content = f.read()
+        if gc.source_type == "INTERNAL":
+            content = gc.text_prop.as_string()
+        elif gc.source_type == "EXTERNAL":
+            with open(gc.filepath, "r") as f:
+                content = f.read()
+
         tokens = list(Lexer(content).lexfile())
         if gc.debug_token_output:
             for token in tokens:
@@ -86,9 +99,13 @@ class COM_OT_compile(Operator):
         return {'FINISHED'}
 
 class GLSLCompiler(PropertyGroup):
-    filepath: bpy.props.StringProperty(name="Source file", subtype="FILE_PATH",
-        # temp
-        default="/home/gurpreetsingh/Development/glsl_compiler/shader.glsl")
+    source_type: bpy.props.EnumProperty(name="Source Type", items=[
+        ("INTERNAL", "Internal", ""),
+        ("EXTERNAL", "External", ""),
+    ])
+
+    text_prop: bpy.props.PointerProperty(type=bpy.types.Text)
+    filepath: bpy.props.StringProperty(name="Source file", subtype="FILE_PATH", default="")
 
     debug_ast_output: bpy.props.BoolProperty(name="AST output", default=False)
     debug_token_output: bpy.props.BoolProperty(name="Token output", default=False)
